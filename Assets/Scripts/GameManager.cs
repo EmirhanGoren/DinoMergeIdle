@@ -8,6 +8,9 @@ public class GameManager : MonoBehaviour
     [Header("Dinozor Şablonları Listesi")]
     public GameObject[] dinoPrefabs;
 
+    [Header("Yumurta Ayarları")]
+    public GameObject eggPrefab; // YENİ EKLENDİ: Yumurta prefab'ini buraya atayacağız
+
     [Header("Ekonomi Ayarları")]
     public int currentGold = 0;
     public int dinoPrice = 50; // 1. Seviye dinozorun fiyatı
@@ -23,9 +26,9 @@ public class GameManager : MonoBehaviour
     {
         UpdateGoldUI();
         
-        // OYUN BAŞINDA BEDAVA DİNOZOR VERME: 
-        // Oyun başlar başlamaz ekranın tam ortasına (0,0,0) 1. seviye bir dinozor fırlat.
-        SpawnNextLevelDino(1, Vector3.zero);
+        // OYUN BAŞINDA BEDAVA YUMURTA VERME:
+        // Oyun başlar başlamaz ekranın tam ortasına (0,0,0) bir yumurta fırlat.
+        Instantiate(eggPrefab, Vector3.zero, Quaternion.identity); // DEĞİŞTİRİLDİ
     }
 
     // Altın ekleme fonksiyonu (Dinozorlar bu fonksiyonu çağıracak)
@@ -51,9 +54,11 @@ public class GameManager : MonoBehaviour
             currentGold -= dinoPrice; // Parayı kes
             UpdateGoldUI();
             
-            // Yeni dinozorun diğerlerinin tam üstüne değil, rastgele hafif kaymış bir yere düşmesi için:
+            // Rastgele bir konum belirle:
             Vector3 randomPos = new Vector3(Random.Range(-2f, 2f), Random.Range(-3f, 3f), 0f);
-            SpawnNextLevelDino(1, randomPos);
+            
+            // YENİ DİNOZOR YERİNE YUMURTA ÇIKARTIYORUZ (DEĞİŞTİRİLDİ)
+            Instantiate(eggPrefab, randomPos, Quaternion.identity);
         }
         else
         {
@@ -61,6 +66,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    // Bu fonksiyon artık sadece dinozorlar birleştiğinde (Merge) bir üst seviyeyi çağırmak için kullanılacak
     public void SpawnNextLevelDino(int nextLevel, Vector3 spawnPosition)
     {
         int targetIndex = nextLevel - 1;
