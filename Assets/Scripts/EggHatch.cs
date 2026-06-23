@@ -2,12 +2,16 @@ using UnityEngine;
 
 public class EggHatch : MonoBehaviour
 {
-    [Header("Görseller ve Şablonlar")]
-    public Sprite crackedEggSprite;
-    public GameObject level1DinoPrefab;
+    [Header("Görseller")]
+    public Sprite crackedEggSprite; // Çatlak yumurta resmi
+
+    [Header("Ses Ayarları")]
+    public AudioClip crackSound;  // Çatlama sesi
+    public AudioClip breakSound;  // Kırılma sesi
 
     private SpriteRenderer spriteRenderer;
     private int clickCount = 0;
+    private bool hasSpawned = false; 
 
     [Header("Sürükleme ve Tıklama Ayarları")]
     private Vector3 offset;
@@ -23,8 +27,7 @@ public class EggHatch : MonoBehaviour
 
     void OnMouseDown()
     {
-        // DEĞİŞEN KISIM: 0.9f yerine 1.1f yaptık. Artık basınca %10 BÜYÜYECEK.
-        // Eğer daha da çok şişmesini istersen bu sayıyı 1.15f veya 1.2f yapabilirsin.
+        // Tıklanınca yumurtayı %10 büyüt (Squish efekti)
         transform.localScale = originalScale * 1.1f;
 
         startMousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
@@ -36,6 +39,7 @@ public class EggHatch : MonoBehaviour
     {
         Vector3 currentMousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
         
+        // Eğer 0.1f'den fazla fare hareket ettiyse bunu "sürükleme" olarak say
         if (Vector3.Distance(startMousePos, currentMousePos) > 0.1f)
         {
             isDragging = true;
@@ -49,13 +53,16 @@ public class EggHatch : MonoBehaviour
 
     void OnMouseUp()
     {
-        // Bırakınca tekrar orijinal (normal) boyutuna dönüyor
+        // Parmağı çekince yumurtayı eski normal boyutuna döndür
         transform.localScale = originalScale;
 
-        if (!isDragging)
+        // Eğer yumurtayı sürüklediysek veya içinden dinozor çoktan çıktıysa kodu burada durdur!
+        if (isDragging || hasSpawned)
         {
-            HatchProcess();
+            return;
         }
+
+        HatchProcess();
     }
 
     void HatchProcess()
@@ -64,17 +71,31 @@ public class EggHatch : MonoBehaviour
 
         if (clickCount == 1)
         {
+            // 1. Tıklama: Görseli değiştir ve çatlama sesini çal
             if (crackedEggSprite != null)
             {
                 spriteRenderer.sprite = crackedEggSprite;
             }
+            if (crackSound != null)
+            {
+                AudioSource.PlayClipAtPoint(crackSound, Camera.main.transform.position, 1f);
+            }
         }
         else if (clickCount >= 2)
         {
-            if (level1DinoPrefab != null)
+            hasSpawned = true; // İkiz dinozor doğmasını engeller
+
+            // 2. Tıklama: Kırılma sesini çal ve GameManager'dan dinozor iste
+            if (breakSound != null)
             {
-                Instantiate(level1DinoPrefab, transform.position, Quaternion.identity);
+                AudioSource.PlayClipAtPoint(breakSound, Camera.main.transform.position, 1f);
             }
+
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.SpawnNextLevelDino(1, transform.position);
+            }
+            
             Destroy(gameObject);
         }
     }

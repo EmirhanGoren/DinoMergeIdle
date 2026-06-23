@@ -12,10 +12,8 @@ GameObject:
   - component: {fileID: 4759179870808922806}
   - component: {fileID: 7690143337756700196}
   - component: {fileID: 4357837500328300493}
-  - component: {fileID: 1071978980607120066}
-  - component: {fileID: 7269459828081191876}
   - component: {fileID: 7637453153539888500}
-  - component: {fileID: -8174919915650193602}
+  - component: {fileID: -8176178991328806212}
   m_Layer: 0
   m_Name: Dino_Lvl6
   m_TagString: Untagged
@@ -156,32 +154,6 @@ CircleCollider2D:
   m_CompositeOrder: 0
   m_Offset: {x: 0, y: 0}
   m_Radius: 2
---- !u!114 &1071978980607120066
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5629872224406905039}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 52daa4782aedbfc4096efcdd94b4ed4f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  isDragging: 0
---- !u!114 &7269459828081191876
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5629872224406905039}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ab5efcf2759ddca4e934464698a819a0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  dinoLevel: 6
 --- !u!114 &7637453153539888500
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -198,7 +170,7 @@ MonoBehaviour:
   minWaitTime: 3
   maxWaitTime: 7
   walkDuration: 1.2
---- !u!114 &-8174919915650193602
+--- !u!114 &-8176178991328806212
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -207,6 +179,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 5629872224406905039}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ddbf3addf8cb70e41814d46f1174c20c, type: 3}
+  m_Script: {fileID: 11500000, guid: 191cadf3beeea514cb5d8560ea2478b5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  dinoLevel: 6
+  clickSound: {fileID: 8300000, guid: 09f8dc09efedc414784e7ba556669245, type: 3}
+  isDragging: 0
