@@ -15,7 +15,7 @@ GameObject:
   - component: {fileID: 6061731290236633098}
   m_Layer: 0
   m_Name: Yumurta
-  m_TagString: Untagged
+  m_TagString: Egg
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -166,5 +166,5 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   crackedEggSprite: {fileID: -2302299757206021186, guid: 766dff19a96c65347a4f4508a2a47031, type: 3}
-  crackSound: {fileID: 8300000, guid: 2b8670b132d29984c93743808adbfcb3, type: 3}
-  breakSound: {fileID: 8300000, guid: 41c5c2b983676c14abbebce504e00d9a, type: 3}
+  crackSound: {fileID: 8300000, guid: 41c5c2b983676c14abbebce504e00d9a, type: 3}
+  breakSound: {fileID: 8300000, guid: 2b8670b132d29984c93743808adbfcb3, type: 3}

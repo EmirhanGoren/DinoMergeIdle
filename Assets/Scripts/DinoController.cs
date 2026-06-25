@@ -23,10 +23,18 @@ public class DinoController : MonoBehaviour
     private Rigidbody2D rb;
     private bool isMerging = false;
 
-    void Start()
+   void Start()
     {
         rb = GetComponent<Rigidbody2D>();
         orijinalBoyut = transform.localScale;
+
+        // --- YENİ EKLENEN KEŞİF KONTROLÜ ---
+        // Dinozor doğduğu an GameManager'a sorar: "Beni daha önce gördün mü?"
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.CheckNewDinoDiscovery(dinoLevel);
+        }
+        // ------------------------------------
 
         // Otomatik altın kazanma döngüsünü başlat
         StartCoroutine(AutoEarnGold());
@@ -59,7 +67,7 @@ public class DinoController : MonoBehaviour
         // 2. Tıklama Altını Kazan
         if (GameManager.Instance != null)
         {
-            GameManager.Instance.AddGold(dinoLevel * 1);
+            GameManager.Instance.AddGold(1);
         }
 
         // 3. Squish (Zıplama/Büyüme) Efekti
@@ -75,20 +83,38 @@ public class DinoController : MonoBehaviour
         sonFarePozisyonu = mouseWorldPos;
     }
 
-    void OnMouseDrag()
+   void OnMouseDrag()
     {
         Vector3 mouseWorldPos = GetMouseWorldPosition();
-        firlatmaHizi = ((Vector2)mouseWorldPos - sonFarePozisyonu) / Time.deltaTime;
-        sonFarePozisyonu = mouseWorldPos;
+        
+        // EĞER OYUN DURMAMIŞSA (Zaman akıyorsa) fırlatma hızını hesapla
+        if (Time.deltaTime > 0f)
+        {
+            firlatmaHizi = ((Vector2)mouseWorldPos - sonFarePozisyonu) / Time.deltaTime;
+        }
+        else
+        {
+            // Zaman durmuşsa (Keşif ekranı açıksa) fırlatma hızı olmasın
+            firlatmaHizi = Vector2.zero;
+        }
 
+        sonFarePozisyonu = mouseWorldPos;
         rb.MovePosition(mouseWorldPos + offset);
     }
 
     void OnMouseUp()
     {
         isDragging = false;
+        
+        // GÜVENLİK KONTROLÜ: Hızın içinde tanımsız (NaN) bir sayı kalmışsa sıfırla
+        if (float.IsNaN(firlatmaHizi.x) || float.IsNaN(firlatmaHizi.y))
+        {
+            firlatmaHizi = Vector2.zero;
+        }
+
         // Bırakınca fırlatma hızı uygula
         rb.linearVelocity = Vector2.ClampMagnitude(firlatmaHizi * 0.8f, 25f);
+        
         // Bırakıldığı an boyutu kesin olarak normale döndür
         transform.localScale = orijinalBoyut; 
     }
