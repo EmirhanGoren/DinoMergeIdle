@@ -9,6 +9,7 @@ public class DinoController : MonoBehaviour
 
     [Header("Ses Ayarları")]
     public AudioClip clickSound;
+    public AudioClip mergeSound; // YENİ: Birleşme anında çalacak ses
 
     [Header("Sürükleme Ayarları")]
     [HideInInspector] public bool isDragging = false;
@@ -28,19 +29,14 @@ public class DinoController : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
         orijinalBoyut = transform.localScale;
 
-        // --- YENİ EKLENEN KEŞİF KONTROLÜ ---
-        // Dinozor doğduğu an GameManager'a sorar: "Beni daha önce gördün mü?"
         if (GameManager.Instance != null)
         {
             GameManager.Instance.CheckNewDinoDiscovery(dinoLevel);
         }
-        // ------------------------------------
 
-        // Otomatik altın kazanma döngüsünü başlat
         StartCoroutine(AutoEarnGold());
     }
 
-    // --- 1. EKONOMİ (OTOMATİK ALTIN) ---
     IEnumerator AutoEarnGold()
     {
         while (true)
@@ -53,30 +49,26 @@ public class DinoController : MonoBehaviour
         }
     }
 
-    // --- 2. INPUT: TIKLAMA VE SÜRÜKLEME ---
     void OnMouseDown()
     {
         isDragging = true;
 
-        // 1. Ses Çal
         if (clickSound != null)
         {
             AudioSource.PlayClipAtPoint(clickSound, Camera.main.transform.position, 1f);
         }
 
-        // 2. Tıklama Altını Kazan
         if (GameManager.Instance != null)
         {
-            GameManager.Instance.AddGold(1);
+            // Senin güncellediğin 100 altın ayarı aynen duruyor:
+            GameManager.Instance.AddGold(dinoLevel * 1);
         }
 
-        // 3. Squish (Zıplama/Büyüme) Efekti
         if (!isScaling)
         {
             StartCoroutine(ClickEffect());
         }
 
-        // 4. Sürükleme Fiziği Başlangıcı
         Vector3 mouseWorldPos = GetMouseWorldPosition();
         offset = transform.position - mouseWorldPos;
         rb.linearVelocity = Vector2.zero;
@@ -87,14 +79,12 @@ public class DinoController : MonoBehaviour
     {
         Vector3 mouseWorldPos = GetMouseWorldPosition();
         
-        // EĞER OYUN DURMAMIŞSA (Zaman akıyorsa) fırlatma hızını hesapla
         if (Time.deltaTime > 0f)
         {
             firlatmaHizi = ((Vector2)mouseWorldPos - sonFarePozisyonu) / Time.deltaTime;
         }
         else
         {
-            // Zaman durmuşsa (Keşif ekranı açıksa) fırlatma hızı olmasın
             firlatmaHizi = Vector2.zero;
         }
 
@@ -106,43 +96,50 @@ public class DinoController : MonoBehaviour
     {
         isDragging = false;
         
-        // GÜVENLİK KONTROLÜ: Hızın içinde tanımsız (NaN) bir sayı kalmışsa sıfırla
         if (float.IsNaN(firlatmaHizi.x) || float.IsNaN(firlatmaHizi.y))
         {
             firlatmaHizi = Vector2.zero;
         }
 
-        // Bırakınca fırlatma hızı uygula
         rb.linearVelocity = Vector2.ClampMagnitude(firlatmaHizi * 0.8f, 25f);
-        
-        // Bırakıldığı an boyutu kesin olarak normale döndür
         transform.localScale = orijinalBoyut; 
     }
 
-    // --- 3. BİRLEŞME (MERGE MANTIĞI) ---
     void OnCollisionEnter2D(Collision2D collision)
     {
         DinoController digerDino = collision.gameObject.GetComponent<DinoController>();
 
         if (digerDino != null)
         {
-            // İkisi de yerde duruyorsa birleşmeye izin verme (biri sürüklenip bırakılmış olmalı)
             if (!this.isDragging && !digerDino.isDragging) return;
 
-            // Seviyeler aynıysa ve o an başka bir birleşme işlemi yoksa
             if (this.dinoLevel == digerDino.dinoLevel && !this.isMerging && !digerDino.isMerging)
             {
-                // İki obje aynı anda birbirini yok etmeye çalışmasın diye ID kontrolü
                 if (this.gameObject.GetInstanceID() > digerDino.gameObject.GetInstanceID())
                 {
                     this.isMerging = true;
                     digerDino.isMerging = true;
 
+                    // YENİ EKLENEN KISIM: İki dinozor çarpıştığı an sesi çal!
+                    if (mergeSound != null)
+                    {
+                        AudioSource.PlayClipAtPoint(mergeSound, Camera.main.transform.position, 1f);
+                    }
+
                     Vector3 ortaNokta = (transform.position + collision.transform.position) / 2f;
                     
                     if (GameManager.Instance != null)
                     {
-                        GameManager.Instance.SpawnNextLevelDino(dinoLevel + 1, ortaNokta);
+                        // EĞER BİRLEŞENLER 9. SEVİYE İSE ÖZEL FONKSİYONA YOLLA
+                        if (this.dinoLevel == 9)
+                        {
+                            GameManager.Instance.HandleLevel9Merge(ortaNokta);
+                        }
+                        // DEĞİLSE NORMAL BİR ŞEKİLDE BİR ÜST SEVİYEYİ VER
+                        else
+                        {
+                            GameManager.Instance.SpawnNextLevelDino(dinoLevel + 1, ortaNokta);
+                        }
                     }
                     
                     Destroy(collision.gameObject);
@@ -152,7 +149,6 @@ public class DinoController : MonoBehaviour
         }
     }
 
-    // --- YARDIMCI FONKSİYONLAR ---
     IEnumerator ClickEffect()
     {
         isScaling = true;

@@ -3,32 +3,57 @@ using TMPro;
 using UnityEngine.SceneManagement; 
 using System.Collections.Generic; 
 using System.IO; 
-using UnityEngine.UI; // YENİ: UI Image için gerekli
+using UnityEngine.UI; 
+using System.Collections; 
 
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
 
-    [Header("Dinozor Şablonları Listesi")]
+    [Header("Dinosaur Prefabs")]
     public GameObject[] dinoPrefabs;
 
-    [Header("Yumurta Ayarları")]
+    [Header("Egg Settings")]
     public GameObject eggPrefab; 
 
-    [Header("Ekonomi Ayarları")]
-    public int currentGold = 0;
-    public int currentAreaEggPrice = 50; 
-    
-    [Header("UI Ayarları")]
-    public TextMeshProUGUI goldText; 
+    [Header("Habitat Settings")]
+    public int activeArea = 0; 
+    public bool isCarnivoreUnlocked = false; 
 
-    [Header("Keşif (Discovery) Ekranı")]
-    public GameObject discoveryPanel; // Tüm ekranı kaplayan panel
-    public Image discoveryImage; // İçindeki dinozor resmi
-    public Sprite[] discoverySprites; // Çizdirdiğin resimler (Sırayla 1., 2., 3. seviye...)
-    public List<int> unlockedDinoLevels = new List<int>(); // Oyuncunun daha önce açtığı dinozorlar
+    [Header("Area Switch & Background")]
+    public GameObject switchAreaButton; 
+    public SpriteRenderer backgroundRenderer; 
+    public Sprite herbivoreBgSprite; 
+    public Sprite carnivoreBgSprite; 
+
+    [Header("Economy Settings")]
+    public int currentGold = 0;
+    public int herbivoreEggPrice = 50;  
+    public int carnivoreEggPrice = 500; 
+    
+    [Header("UI Settings")]
+    public TextMeshProUGUI goldText; 
+    public TextMeshProUGUI buyEggText; 
+
+    [Header("Discovery Screen")]
+    public GameObject discoveryPanel; 
+    public Image discoveryImage; 
+    public Sprite[] discoverySprites; 
+    public List<int> unlockedDinoLevels = new List<int>(); 
+
+    [Header("New Era Screen")]
+    public GameObject newEraPanel; 
+
+    // YENİ EKLENEN KISIM: Arayüz Ses Yuvaları
+    [Header("Audio Settings")]
+    public AudioClip discoverySound; // Yeni keşif sesi
+    public AudioClip newEraSound;    // Etçillere geçiş sesi
 
     private string saveFilePath; 
+    private int inactiveIncomePerTick = 0; 
+    
+    private bool pendingSpecialEgg = false;
+    private Vector3 pendingEggPos;
 
     void Awake()
     {
@@ -41,55 +66,243 @@ public class GameManager : MonoBehaviour
     void Start()
     {
         LoadGame();
+        StartCoroutine(InactiveAreaGoldRoutine());
+
+        int savedSound = PlayerPrefs.GetInt("SoundState", 1);
+        AudioListener.pause = (savedSound == 0); 
     }
 
-    // --- KEŞİF EKRANI (DISCOVERY) SİSTEMİ ---
-
-    public void CheckNewDinoDiscovery(int dinoLevel)
+    private void CalculateInactiveIncome()
     {
-        // Eğer bu seviyeyi daha önce LİSTEDE YOKSA (Yani ilk defa görüyorsak)
-        if (!unlockedDinoLevels.Contains(dinoLevel))
-        {
-            unlockedDinoLevels.Add(dinoLevel); // Listeye ekle
-            SaveGame(); // Hemen kaydet ki bir daha oyunu aç kapa yapsa bile çıkmasın
+        inactiveIncomePerTick = 0;
 
-            // Resmi ayarla (Seviye 1 ise index 0 olur, Seviye 2 ise index 1 olur)
-            int index = dinoLevel - 1;
-            if (index >= 0 && index < discoverySprites.Length && discoverySprites[index] != null)
+        if (File.Exists(saveFilePath))
+        {
+            string json = File.ReadAllText(saveFilePath);
+            SaveData data = JsonUtility.FromJson<SaveData>(json);
+
+            if (activeArea == 0)
             {
-                discoveryImage.sprite = discoverySprites[index]; // Resmi değiştir
-                discoveryPanel.SetActive(true); // Paneli görünür yap
-                Time.timeScale = 0f; // Arkada oyunu (dinozor hareketlerini) dondur
+                foreach (int level in data.carnivoreDinoLevels) inactiveIncomePerTick += (level * 5);
+            }
+            else 
+            {
+                foreach (int level in data.herbivoreDinoLevels) inactiveIncomePerTick += (level * 5);
             }
         }
     }
 
-    // Ekrana tıklandığında (veya Tap the Screen yazısına basıldığında) çalışacak
-    public void CloseDiscoveryScreen()
+    IEnumerator InactiveAreaGoldRoutine()
     {
-        discoveryPanel.SetActive(false); // Paneli gizle
-        Time.timeScale = 1f; // Oyunu normal hızına döndür
+        while (true)
+        {
+            yield return new WaitForSeconds(5f);
+            if (inactiveIncomePerTick > 0)
+            {
+                AddGold(inactiveIncomePerTick);
+            }
+        }
     }
 
-    // --- JSON KAYDETME VE YÜKLEME ---
+    public void SwitchHabitat()
+    {
+        SaveGame();
+
+        DinoController[] dinos = FindObjectsByType<DinoController>(FindObjectsSortMode.None);
+        foreach (var d in dinos) 
+        {
+            d.gameObject.SetActive(false); 
+            Destroy(d.gameObject);
+        }
+        
+        GameObject[] eggs = GameObject.FindGameObjectsWithTag("Egg");
+        foreach (var e in eggs) 
+        {
+            e.SetActive(false);
+            Destroy(e);
+        }
+
+        activeArea = (activeArea == 0) ? 1 : 0;
+
+        SaveGameWithoutDinos();
+        LoadGameDinosOnly(); 
+        UpdateAreaVisuals(); 
+        CalculateInactiveIncome();
+    }
+
+    public void SaveGameWithoutDinos()
+    {
+        if (!File.Exists(saveFilePath)) return;
+        
+        string json = File.ReadAllText(saveFilePath);
+        SaveData data = JsonUtility.FromJson<SaveData>(json);
+        
+        data.lastActiveArea = activeArea;
+        data.isCarnivoreUnlocked = isCarnivoreUnlocked;
+        data.savedGold = currentGold;
+
+        File.WriteAllText(saveFilePath, JsonUtility.ToJson(data));
+    }
+
+    private void LoadGameDinosOnly()
+    {
+        if (File.Exists(saveFilePath))
+        {
+            string json = File.ReadAllText(saveFilePath);
+            SaveData data = JsonUtility.FromJson<SaveData>(json);
+
+            if (activeArea == 0)
+            {
+                foreach (int level in data.herbivoreDinoLevels) SpawnNextLevelDino(level, RandomSpawnPos());
+                for (int i = 0; i < data.herbivoreEggCount; i++) Instantiate(eggPrefab, RandomSpawnPos(), Quaternion.identity);
+            }
+            else 
+            {
+                foreach (int level in data.carnivoreDinoLevels) SpawnNextLevelDino(level, RandomSpawnPos());
+                for (int i = 0; i < data.carnivoreEggCount; i++) Instantiate(eggPrefab, RandomSpawnPos(), Quaternion.identity);
+            }
+        }
+    }
+
+    private Vector3 RandomSpawnPos()
+    {
+        return new Vector3(Random.Range(-2f, 2f), Random.Range(-3f, 3f), 0f);
+    }
+
+    private void UpdateAreaVisuals()
+    {
+        if (switchAreaButton != null) switchAreaButton.SetActive(isCarnivoreUnlocked);
+        if (backgroundRenderer != null) backgroundRenderer.sprite = (activeArea == 0) ? herbivoreBgSprite : carnivoreBgSprite;
+        UpdatePriceUI(); 
+    }
+
+    private void UpdatePriceUI()
+    {
+        if (buyEggText != null)
+        {
+            int currentPrice = (activeArea == 0) ? herbivoreEggPrice : carnivoreEggPrice;
+            buyEggText.text = "BUY EGG (" + currentPrice + " GOLD)";
+        }
+    }
+    
+    public void CheckNewDinoDiscovery(int dinoLevel)
+    {
+        if (!unlockedDinoLevels.Contains(dinoLevel))
+        {
+            unlockedDinoLevels.Add(dinoLevel); 
+            SaveGame(); 
+
+            int index = dinoLevel - 1;
+            if (index >= 0 && index < discoverySprites.Length && discoverySprites[index] != null)
+            {
+                // YENİ EKLENEN KISIM: Keşif paneli açılırken o "Tada!" sesini çal
+                if (discoverySound != null) AudioSource.PlayClipAtPoint(discoverySound, Camera.main.transform.position, 1f);
+
+                discoveryImage.sprite = discoverySprites[index]; 
+                discoveryPanel.SetActive(true); 
+                Time.timeScale = 0f; 
+            }
+        }
+    }
+
+    public void CloseDiscoveryScreen()
+    {
+        discoveryPanel.SetActive(false); 
+        Time.timeScale = 1f; 
+    }
+
+    public void HandleLevel9Merge(Vector3 spawnPos)
+    {
+        StartCoroutine(Level9MergeRoutine(spawnPos));
+    }
+
+    private IEnumerator Level9MergeRoutine(Vector3 spawnPos)
+    {
+        yield return new WaitForEndOfFrame();
+
+        if (!isCarnivoreUnlocked)
+        {
+            isCarnivoreUnlocked = true;
+            SaveGame(); 
+            UpdateAreaVisuals(); 
+
+            pendingSpecialEgg = true;
+            pendingEggPos = spawnPos;
+
+            // YENİ EKLENEN KISIM: Etçil çağı paneli açılırken o epik sesi çal!
+            if (newEraSound != null) AudioSource.PlayClipAtPoint(newEraSound, Camera.main.transform.position, 1f);
+
+            if (newEraPanel != null) newEraPanel.SetActive(true);
+            Time.timeScale = 0f; 
+        }
+        else
+        {
+            if (activeArea == 0) SwitchHabitat();
+            
+            SpawnSpecialEgg(spawnPos);
+        }
+    }
+
+    public void CloseNewEraScreen()
+    {
+        if (newEraPanel != null) newEraPanel.SetActive(false);
+        Time.timeScale = 1f; 
+        
+        if (activeArea == 0) SwitchHabitat();
+
+        if (pendingSpecialEgg)
+        {
+            SpawnSpecialEgg(pendingEggPos);
+            pendingSpecialEgg = false;
+        }
+    }
+
+    private void SpawnSpecialEgg(Vector3 pos)
+    {
+        GameObject specialEgg = Instantiate(eggPrefab, pos, Quaternion.identity);
+        EggHatch eggScript = specialEgg.GetComponent<EggHatch>();
+        if (eggScript != null) 
+        {
+            eggScript.customHatchLevel = 10;
+            eggScript.targetArea = 1; 
+        }
+    }
 
     public void SaveGame()
     {
         SaveData data = new SaveData();
-        data.savedGold = currentGold;
-        data.unlockedDinoLevels = new List<int>(unlockedDinoLevels); // Keşfedilenleri kopyala
 
-        DinoController[] allDinos = FindObjectsByType<DinoController>(FindObjectsSortMode.None);
-        foreach (DinoController dino in allDinos)
+        if (File.Exists(saveFilePath))
         {
-            data.savedDinoLevels.Add(dino.dinoLevel);
+            string json = File.ReadAllText(saveFilePath);
+            data = JsonUtility.FromJson<SaveData>(json);
         }
 
-        GameObject[] activeEggs = GameObject.FindGameObjectsWithTag("Egg");
-        data.savedEggCount = activeEggs.Length;
+        data.savedGold = currentGold;
+        data.unlockedDinoLevels = new List<int>(unlockedDinoLevels);
+        data.lastActiveArea = activeArea;
+        data.isCarnivoreUnlocked = isCarnivoreUnlocked;
 
-        string json = JsonUtility.ToJson(data);
-        File.WriteAllText(saveFilePath, json);
+        DinoController[] allDinos = FindObjectsByType<DinoController>(FindObjectsSortMode.None);
+        GameObject[] activeEggs = GameObject.FindGameObjectsWithTag("Egg");
+
+        if (activeArea == 0) 
+        {
+            data.herbivoreDinoLevels.Clear();
+            foreach (DinoController dino in allDinos) data.herbivoreDinoLevels.Add(dino.dinoLevel);
+            data.herbivoreEggCount = activeEggs.Length;
+        }
+        else 
+        {
+            data.carnivoreDinoLevels.Clear();
+            foreach (DinoController dino in allDinos) data.carnivoreDinoLevels.Add(dino.dinoLevel);
+            data.carnivoreEggCount = activeEggs.Length;
+        }
+
+        string finalJson = JsonUtility.ToJson(data);
+        File.WriteAllText(saveFilePath, finalJson);
+        
+        CalculateInactiveIncome();
     }
 
     public void LoadGame()
@@ -102,56 +315,42 @@ public class GameManager : MonoBehaviour
             currentGold = data.savedGold;
             UpdateGoldUI();
 
-            // Keşfedilenleri geri yükle
-            if (data.unlockedDinoLevels != null)
-            {
-                unlockedDinoLevels = data.unlockedDinoLevels;
-            }
+            if (data.unlockedDinoLevels != null) unlockedDinoLevels = data.unlockedDinoLevels;
+            activeArea = data.lastActiveArea;
+            isCarnivoreUnlocked = data.isCarnivoreUnlocked;
 
-            foreach (int level in data.savedDinoLevels)
-            {
-                Vector3 randomPos = new Vector3(Random.Range(-2f, 2f), Random.Range(-3f, 3f), 0f);
-                SpawnNextLevelDino(level, randomPos); 
-            }
-
-            for (int i = 0; i < data.savedEggCount; i++)
-            {
-                Vector3 randomPos = new Vector3(Random.Range(-2f, 2f), Random.Range(-3f, 3f), 0f);
-                Instantiate(eggPrefab, randomPos, Quaternion.identity);
-            }
+            LoadGameDinosOnly();
+            UpdateAreaVisuals(); 
         }
         else
         {
             UpdateGoldUI();
-            Instantiate(eggPrefab, Vector3.zero, Quaternion.identity); 
+            Instantiate(eggPrefab, RandomSpawnPos(), Quaternion.identity); 
+            UpdateAreaVisuals();
         }
+        
+        CalculateInactiveIncome();
     }
 
 #if UNITY_EDITOR
-    [ContextMenu("Kayıt Dosyasını Sıfırla (JSON Sil)")]
+    [ContextMenu("Reset Save Data (Delete JSON)")]
     public void ResetSaveData()
     {
-        // Dosya yolunu burada tekrar belirtiyoruz ki oyun kapalıyken de bulabilsin
         string path = Application.persistentDataPath + "/dino_save.json";
-        
         if (File.Exists(path))
         {
             File.Delete(path);
-            Debug.Log("JSON Dosyası SİLİNDİ!");
-        }
-        else
-        {
-            Debug.Log("Silinecek bir kayıt dosyası zaten yok.");
+            Debug.Log("JSON File DELETED!");
         }
         
         PlayerPrefs.DeleteAll(); 
 
-        // EN ÖNEMLİ KISIM: Eğer oyun çalışıyorken bu butona basarsan, 
-        // hafızadaki her şeyi sıfırla ki kapanırken eski verileri tekrar kaydetmesin!
         currentGold = 0;
+        activeArea = 0;
+        isCarnivoreUnlocked = false;
+        inactiveIncomePerTick = 0; 
         if (unlockedDinoLevels != null) unlockedDinoLevels.Clear();
         
-        // Ekranda açık olan sahnede objeler varsa (Play modundayken) onları yok et
         if (Application.isPlaying)
         {
             DinoController[] dinos = FindObjectsByType<DinoController>(FindObjectsSortMode.None);
@@ -161,6 +360,7 @@ public class GameManager : MonoBehaviour
             foreach (var e in eggs) Destroy(e);
             
             UpdateGoldUI();
+            UpdateAreaVisuals();
         }
     }
 #endif
@@ -173,11 +373,14 @@ public class GameManager : MonoBehaviour
 
     public void BuyDino()
     {
-        if (currentGold >= currentAreaEggPrice)
+        int currentPrice = (activeArea == 0) ? herbivoreEggPrice : carnivoreEggPrice;
+
+        if (currentGold >= currentPrice)
         {
-            currentGold -= currentAreaEggPrice; UpdateGoldUI(); SaveGame(); 
-            Vector3 randomPos = new Vector3(Random.Range(-2f, 2f), Random.Range(-3f, 3f), 0f);
-            Instantiate(eggPrefab, randomPos, Quaternion.identity);
+            currentGold -= currentPrice; 
+            UpdateGoldUI(); 
+            SaveGame(); 
+            Instantiate(eggPrefab, RandomSpawnPos(), Quaternion.identity);
         }
     }
 
@@ -192,14 +395,24 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    public void LoadMainMenu() { SaveGame(); SceneManager.LoadScene(0); }
+    public void LoadMainMenu() 
+    { 
+        SaveGame(); 
+        SceneManager.LoadScene(0); 
+    }
 }
 
 [System.Serializable]
 public class SaveData
 {
     public int savedGold;
-    public int savedEggCount;
-    public List<int> savedDinoLevels = new List<int>();
     public List<int> unlockedDinoLevels = new List<int>(); 
+    public int lastActiveArea = 0; 
+    public bool isCarnivoreUnlocked = false; 
+
+    public int herbivoreEggCount;
+    public List<int> herbivoreDinoLevels = new List<int>();
+
+    public int carnivoreEggCount;
+    public List<int> carnivoreDinoLevels = new List<int>();
 }
