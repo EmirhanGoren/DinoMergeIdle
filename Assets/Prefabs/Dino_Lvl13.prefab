@@ -185,4 +185,5 @@ MonoBehaviour:
   dinoLevel: 13
   clickSound: {fileID: 8300000, guid: 09f8dc09efedc414784e7ba556669245, type: 3}
   mergeSound: {fileID: 8300000, guid: 2b8670b132d29984c93743808adbfcb3, type: 3}
+  floatingTextPrefab: {fileID: 8196852459156511727, guid: 1cf98e49c25743b41aaec0e7c6fb409e, type: 3}
   isDragging: 0
