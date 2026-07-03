@@ -1,10 +1,10 @@
 using UnityEngine;
-using TMPro; 
-using UnityEngine.SceneManagement; 
-using System.Collections.Generic; 
-using System.IO; 
-using UnityEngine.UI; 
-using System.Collections; 
+using UnityEngine.UI;
+using UnityEngine.SceneManagement;
+using System.Collections.Generic;
+using System.IO;
+using TMPro;
+using System.Collections;
 
 public class GameManager : MonoBehaviour
 {
@@ -44,10 +44,9 @@ public class GameManager : MonoBehaviour
     [Header("New Era Screen")]
     public GameObject newEraPanel; 
 
-    // YENİ EKLENEN KISIM: Arayüz Ses Yuvaları
     [Header("Audio Settings")]
-    public AudioClip discoverySound; // Yeni keşif sesi
-    public AudioClip newEraSound;    // Etçillere geçiş sesi
+    public AudioClip discoverySound; 
+    public AudioClip newEraSound;    
 
     private string saveFilePath; 
     private int inactiveIncomePerTick = 0; 
@@ -68,8 +67,22 @@ public class GameManager : MonoBehaviour
         LoadGame();
         StartCoroutine(InactiveAreaGoldRoutine());
 
-        int savedSound = PlayerPrefs.GetInt("SoundState", 1);
-        AudioListener.pause = (savedSound == 0); 
+        // YENİ: Sahne açıldığında bu sahnedeki BackgroundMusic objesini kontrol et
+        ApplyMusicState();
+    }
+
+    public void ApplyMusicState()
+    {
+        GameObject bgMusicObj = GameObject.Find("BackgroundMusic");
+        if (bgMusicObj != null)
+        {
+            AudioSource audio = bgMusicObj.GetComponent<AudioSource>();
+            if (audio != null)
+            {
+                bool isMusicOn = PlayerPrefs.GetInt("MusicState", 1) == 1;
+                audio.mute = !isMusicOn;
+            }
+        }
     }
 
     private void CalculateInactiveIncome()
@@ -195,8 +208,8 @@ public class GameManager : MonoBehaviour
             int index = dinoLevel - 1;
             if (index >= 0 && index < discoverySprites.Length && discoverySprites[index] != null)
             {
-                // YENİ EKLENEN KISIM: Keşif paneli açılırken o "Tada!" sesini çal
-                if (discoverySound != null) AudioSource.PlayClipAtPoint(discoverySound, Camera.main.transform.position, 1f);
+                if (discoverySound != null && PlayerPrefs.GetInt("SFXState", 1) == 1) 
+                    AudioSource.PlayClipAtPoint(discoverySound, Camera.main.transform.position, 1f);
 
                 discoveryImage.sprite = discoverySprites[index]; 
                 discoveryPanel.SetActive(true); 
@@ -229,8 +242,8 @@ public class GameManager : MonoBehaviour
             pendingSpecialEgg = true;
             pendingEggPos = spawnPos;
 
-            // YENİ EKLENEN KISIM: Etçil çağı paneli açılırken o epik sesi çal!
-            if (newEraSound != null) AudioSource.PlayClipAtPoint(newEraSound, Camera.main.transform.position, 1f);
+            if (newEraSound != null && PlayerPrefs.GetInt("SFXState", 1) == 1) 
+                AudioSource.PlayClipAtPoint(newEraSound, Camera.main.transform.position, 1f);
 
             if (newEraPanel != null) newEraPanel.SetActive(true);
             Time.timeScale = 0f; 
@@ -369,7 +382,20 @@ public class GameManager : MonoBehaviour
     private void OnApplicationPause(bool pauseStatus) { if (pauseStatus) SaveGame(); }
 
     public void AddGold(int amount) { currentGold += amount; UpdateGoldUI(); SaveGame(); }
-    private void UpdateGoldUI() { if (goldText != null) goldText.text = currentGold.ToString(); }
+    
+    // Taşmayı önlemek için K/M/B formatıyla güncellenen altın UI metodu
+    private void UpdateGoldUI() 
+    { 
+        if (goldText != null) goldText.text = FormatGold(currentGold); 
+    }
+
+    private string FormatGold(int amount)
+    {
+        if (amount >= 1000000000) return (amount / 1000000000f).ToString("0.#") + "B";
+        if (amount >= 1000000) return (amount / 1000000f).ToString("0.#") + "M";
+        if (amount >= 1000) return (amount / 1000f).ToString("0.#") + "K";
+        return amount.ToString();
+    }
 
     public void BuyDino()
     {
@@ -400,8 +426,8 @@ public class GameManager : MonoBehaviour
         SaveGame(); 
         SceneManager.LoadScene(0); 
     }
+    
 }
-
 [System.Serializable]
 public class SaveData
 {

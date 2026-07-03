@@ -1,6 +1,6 @@
 using System.Collections;
 using UnityEngine;
-using TMPro; // YENİ: Yazı bileşenine ulaşmak için gerekli
+using TMPro;
 
 [RequireComponent(typeof(Rigidbody2D))]
 public class DinoController : MonoBehaviour
@@ -13,7 +13,7 @@ public class DinoController : MonoBehaviour
     public AudioClip mergeSound; 
 
     [Header("UI Ayarları")]
-    public GameObject floatingTextPrefab; // YENİ: Kayan altın prefabı buraya sürüklenecek
+    public GameObject floatingTextPrefab; 
 
     [Header("Sürükleme Ayarları")]
     [HideInInspector] public bool isDragging = false;
@@ -48,9 +48,9 @@ public class DinoController : MonoBehaviour
             yield return new WaitForSeconds(5f);
             if (GameManager.Instance != null)
             {
-                int earnedGold = dinoLevel * 5; // Kazanılan altını hesapla
-                GameManager.Instance.AddGold(earnedGold); // Altını haneye yaz
-                ShowFloatingGold(earnedGold); // YENİ: Ekranda göster
+                int earnedGold = dinoLevel * 5;
+                GameManager.Instance.AddGold(earnedGold);
+                ShowFloatingGold(earnedGold);
             }
         }
     }
@@ -59,16 +59,17 @@ public class DinoController : MonoBehaviour
     {
         isDragging = true;
 
-        if (clickSound != null)
+        // YENİ: Sadece SFX açıksa tıklama sesini çal
+        if (clickSound != null && PlayerPrefs.GetInt("SFXState", 1) == 1)
         {
             AudioSource.PlayClipAtPoint(clickSound, Camera.main.transform.position, 1f);
         }
 
         if (GameManager.Instance != null)
         {
-            int earnedGold = dinoLevel * 1; // Tıklamayla kazanılan altını hesapla
-            GameManager.Instance.AddGold(earnedGold); // Altını haneye yaz
-            ShowFloatingGold(earnedGold); // YENİ: Ekranda göster
+            int earnedGold = dinoLevel * 1;
+            GameManager.Instance.AddGold(earnedGold);
+            ShowFloatingGold(earnedGold);
         }
 
         if (!isScaling)
@@ -127,7 +128,8 @@ public class DinoController : MonoBehaviour
                     this.isMerging = true;
                     digerDino.isMerging = true;
 
-                    if (mergeSound != null)
+                    // YENİ: Sadece SFX açıksa birleşme sesini çal
+                    if (mergeSound != null && PlayerPrefs.GetInt("SFXState", 1) == 1)
                     {
                         AudioSource.PlayClipAtPoint(mergeSound, Camera.main.transform.position, 1f);
                     }
@@ -153,17 +155,12 @@ public class DinoController : MonoBehaviour
         }
     }
 
-    // YENİ EKLENEN FONKSİYON: Altın yazısını dinozorun tepesinde çıkartır
     private void ShowFloatingGold(int amount)
     {
         if (floatingTextPrefab != null)
         {
-            // Yazının çıkacağı yer: Dinazorun merkezinin biraz üstü
             Vector3 spawnPos = transform.position + new Vector3(0, 0.8f, 0); 
-            
             GameObject textObj = Instantiate(floatingTextPrefab, spawnPos, Quaternion.identity);
-            
-            // Prefabın içindeki (alt obje) TextMeshPro bileşenini bul ve yazıyı güncelle
             textObj.GetComponentInChildren<TextMeshPro>().text = "+" + amount.ToString();
         }
     }

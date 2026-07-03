@@ -11,11 +11,11 @@ public class MenuManager : MonoBehaviour
     public GameObject settingsPanel;
     public GameObject collectionPanel;
     
-    [Header("Ses Ayarları")]
-    public Image toggleImage; 
+    [Header("Ses Görsel Ayarları")]
+    public Image sfxToggleImage;   // SFX (Efekt) butonunun üzerindeki ikon resmi
+    public Image musicToggleImage; // Müzik butonunun üzerindeki ikon resmi
     public Sprite onSprite;   
     public Sprite offSprite;  
-    private bool isSoundOn = true;
 
     [Header("Koleksiyon Ayarları")]
     public GameObject dinoCardPrefab;
@@ -23,12 +23,20 @@ public class MenuManager : MonoBehaviour
     public Sprite[] allDinoSprites;
     public string[] allDinoNames;
 
+    private bool isSFXOn = true;
+    private bool isMusicOn = true;
+
     void Start()
     {
-        int savedSound = PlayerPrefs.GetInt("SoundState", 1);
-        isSoundOn = (savedSound == 1);
-        AudioListener.pause = !isSoundOn;
-        if(toggleImage != null) toggleImage.sprite = isSoundOn ? onSprite : offSprite;
+        // Hafızadan ses durumlarını yükle (Kayıt yoksa varsayılan olarak 1 yani Açık gelir)
+        isSFXOn = PlayerPrefs.GetInt("SFXState", 1) == 1;
+        isMusicOn = PlayerPrefs.GetInt("MusicState", 1) == 1;
+
+        // Butonların üzerindeki On/Off ikonlarını güncelle
+        UpdateUIStyles();
+
+        // Ana menü sahnesindeki BackgroundMusic objesini bul ve durumuna göre sustur/aç
+        ApplyMusicState();
     }
 
     public void PlayGame() { SceneManager.LoadScene(1); }
@@ -38,19 +46,72 @@ public class MenuManager : MonoBehaviour
         if (settingsPanel != null) settingsPanel.SetActive(!settingsPanel.activeSelf);
     }
 
-    public void ToggleSound()
+    // Sadece ses efektlerini (SFX) açıp kapatan buton fonksiyonu
+    public void ToggleSFX()
     {
-        isSoundOn = !isSoundOn;
-        AudioListener.pause = !isSoundOn;
-        if(toggleImage != null) toggleImage.sprite = isSoundOn ? onSprite : offSprite;
-        PlayerPrefs.SetInt("SoundState", isSoundOn ? 1 : 0);
+        isSFXOn = !isSFXOn;
+        PlayerPrefs.SetInt("SFXState", isSFXOn ? 1 : 0);
         PlayerPrefs.Save();
+
+        UpdateUIStyles();
+    }
+
+    // Sadece müziği açıp kapatan buton fonksiyonu
+    public void ToggleMusic()
+    {
+        isMusicOn = !isMusicOn;
+        PlayerPrefs.SetInt("MusicState", isMusicOn ? 1 : 0);
+        PlayerPrefs.Save();
+
+        UpdateUIStyles();
+        ApplyMusicState(); // Değişikliği anında bu sahnedeki müziğe uygula
+    }
+
+    // Tüm sesleri tek tıkla kapatan/açan master buton fonksiyonu
+    public void ToggleAllSounds()
+    {
+        if (isSFXOn || isMusicOn)
+        {
+            isSFXOn = false;
+            isMusicOn = false;
+        }
+        else
+        {
+            isSFXOn = true;
+            isMusicOn = true;
+        }
+
+        PlayerPrefs.SetInt("SFXState", isSFXOn ? 1 : 0);
+        PlayerPrefs.SetInt("MusicState", isMusicOn ? 1 : 0);
+        PlayerPrefs.Save();
+
+        UpdateUIStyles();
+        ApplyMusicState();
+    }
+
+    private void UpdateUIStyles()
+    {
+        if (sfxToggleImage != null) sfxToggleImage.sprite = isSFXOn ? onSprite : offSprite;
+        if (musicToggleImage != null) musicToggleImage.sprite = isMusicOn ? onSprite : offSprite;
+    }
+
+    private void ApplyMusicState()
+    {
+        GameObject bgMusicObj = GameObject.Find("BackgroundMusic");
+        if (bgMusicObj != null)
+        {
+            AudioSource audio = bgMusicObj.GetComponent<AudioSource>();
+            if (audio != null)
+            {
+                audio.mute = !isMusicOn;
+            }
+        }
     }
 
     public void OpenCollection()
     {
         collectionPanel.SetActive(true);
-        LoadCollectionData(); // Burayı ekledik, artık tetikleniyor!
+        LoadCollectionData();
     }
 
     public void CloseCollection()
