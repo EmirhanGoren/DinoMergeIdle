@@ -1,5 +1,5 @@
 using UnityEngine;
-using UnityEngine.EventSystems; // UI tıklamalarını algılamak için şart
+using UnityEngine.EventSystems;
 
 public class ButtonSquish : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
 {
@@ -25,8 +25,8 @@ public class ButtonSquish : MonoBehaviour, IPointerDownHandler, IPointerUpHandle
         // 1. Görsel Efekt: Butonu küçült/büyüt
         transform.localScale = originalScale * squishAmount;
 
-        // 2. İşitsel Efekt: Sesi çal
-        if (buttonSound != null)
+        // 2. İşitsel Efekt: Sesi çal (YENİ: Sadece SFX açıksa çalacak)
+        if (buttonSound != null && PlayerPrefs.GetInt("SFXState", 1) == 1)
         {
             // Sesi kameranın olduğu konumda net bir şekilde çal
             AudioSource.PlayClipAtPoint(buttonSound, Camera.main.transform.position, 1f);
